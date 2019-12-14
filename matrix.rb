@@ -151,9 +151,6 @@ class LinearSystemOfEquations
 
   def lowwer_triangle_matrix(pivot_flag = true)
     @dimension.times do |i|
-      #TODO: Add checking if the matrix[i][i] == 0
-      all_rows_0 = false #true if the i-th coeficient of all rows are 0
-      #if it's true, that mens we don't have to do gaus_method
       if pivot_flag
         maximum_row = @matrix.find_maximum(i)
         if maximum_row != i
