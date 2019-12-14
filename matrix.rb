@@ -19,10 +19,20 @@ class Matrix
     end
   end
 
-  def to_s
+  def read_from_file(file)
+    file_data = file.readlines
     @dimension.times do |i|
       @dimension.times do |j|
-        print @matrix[i][j]
+        @matrix[i][j] = file_data[j + i * @dimension].to_f
+      end
+    end
+    file_data
+  end
+
+  def to_s(precision = 4)
+    @dimension.times do |i|
+      @dimension.times do |j|
+        print @matrix[i][j].round(precision)
         print ", " if j != @dimension - 1
       end
       print "\n"
@@ -89,18 +99,27 @@ class Matrix
 end
 
 class LinearSystemOfEquations
-  def initialize(dimension)
+  def initialize(dimension, precision)
     @matrix = Matrix.new(dimension)
     @dimension = dimension
     @free_coef = []
     @dimension.times do |i|
       @free_coef.push(0)
     end
+    @precision = precision
   end
 
   def read
     read_matrix
     read_free_coef
+  end
+
+  def read_from_file(file)
+    file_data = @matrix.read_from_file(file)
+
+    @dimension.times do |i|
+      @free_coef[i] = file_data[@dimension * @dimension + i].to_f
+    end
   end
 
   def read_matrix
@@ -116,31 +135,33 @@ class LinearSystemOfEquations
   def to_s
     @dimension.times do |i|
       @dimension.times do |j|
-        print @matrix.matrix[i][j]
+        print @matrix.matrix[i][j].round(@precision)
         print ", " if j != @dimension - 1
       end
       print " = "
-      print @free_coef[i]
+      print @free_coef[i].round(@precision)
       print "\n"
     end
   end
 
-  def gaus_solve
-    lowwer_triangle_matrix
+  def gaus_solve(pivot = true)
+    lowwer_triangle_matrix(pivot)
     reverse_solve
   end
 
-  def lowwer_triangle_matrix
+  def lowwer_triangle_matrix(pivot_flag = true)
     @dimension.times do |i|
       #TODO: Add checking if the matrix[i][i] == 0
       all_rows_0 = false #true if the i-th coeficient of all rows are 0
       #if it's true, that mens we don't have to do gaus_method
-      maximum_row = @matrix.find_maximum(i)
-      if maximum_row != i
-        @matrix.swap_row(i, maximum_row)
-        helper = @free_coef[i]
-        @free_coef[i] = @free_coef[maximum_row]
-        @free_coef[maximum_row] = helper
+      if pivot_flag
+        maximum_row = @matrix.find_maximum(i)
+        if maximum_row != i
+          @matrix.swap_row(i, maximum_row)
+          helper = @free_coef[i]
+          @free_coef[i] = @free_coef[maximum_row]
+          @free_coef[maximum_row] = helper
+        end
       end
       (@dimension - i - 1).times do |j|
         coef = -  @matrix.matrix[j + i + 1][i] * 1.0 / @matrix.matrix[i][i]
@@ -151,6 +172,7 @@ class LinearSystemOfEquations
         @free_coef[j + i + 1] += coef * @free_coef[i]
       end
     end
+    puts self
   end
 
   def reverse_solve
@@ -162,7 +184,7 @@ class LinearSystemOfEquations
       #all the other solution variables ,that are known up until then, multiplied
       #by the coefficient at their positoon in the row
     end
-    solution.map {|el| el.round(4)}
+    solution.map {|el| el.round(@precision)}
   end
 
   def check_solution(solution)
@@ -192,12 +214,22 @@ class LinearSystemOfEquations
 
 end
 
-sys = LinearSystemOfEquations.new(4)
-sys.read
-puts sys
-sys.lowwer_triangle_matrix
-puts sys
-solution = sys.gaus_solve
-puts solution
-sys.check_solution(solution)
-
+dimension = 4
+precision = 6
+sys_pivot = LinearSystemOfEquations.new(dimension, precision)
+sys_no_pivot = LinearSystemOfEquations.new(dimension, precision)
+sys_original = LinearSystemOfEquations.new(dimension, precision)
+file = File.open("test_domaci8.txt")
+sys_pivot.read_from_file(file)
+file.rewind
+sys_no_pivot.read_from_file(file)
+file.rewind
+sys_original.read_from_file(file)
+file.close
+puts sys_original
+solution_pivot = sys_pivot.gaus_solve(true)
+solution_no_pivot = sys_no_pivot.gaus_solve(false)
+puts solution_pivot
+puts solution_no_pivot
+sys_pivot.check_solution(solution_pivot)
+sys_no_pivot.check_solution(solution_no_pivot)
