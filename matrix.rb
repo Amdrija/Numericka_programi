@@ -11,22 +11,12 @@ class Matrix
     end
   end
 
-  def read
+  def read(file = $stdin)
     @dimension.times do |i|
       @dimension.times do |j|
-        @matrix[i][j] = gets.to_f
+        @matrix[i][j] = file.gets.to_f
       end
     end
-  end
-
-  def read_from_file(file)
-    file_data = file.readlines
-    @dimension.times do |i|
-      @dimension.times do |j|
-        @matrix[i][j] = file_data[j + i * @dimension].to_f
-      end
-    end
-    file_data
   end
 
   def to_s(precision = 4)
@@ -98,8 +88,9 @@ class Matrix
   end
 end
 
+# Represents one system of linear equations, with methods to solve it
 class LinearSystemOfEquations
-  def initialize(dimension, precision)
+  def initialize(dimension, precision, file_output = $stdout)
     @matrix = Matrix.new(dimension)
     @dimension = dimension
     @free_coef = []
@@ -107,41 +98,30 @@ class LinearSystemOfEquations
       @free_coef.push(0)
     end
     @precision = precision
+    @file_output = file_output
   end
 
-  def read
-    read_matrix
-    read_free_coef
+  def read(file = $stdin)
+    @matrix.read(file)
+    read_free_coef(file)
   end
 
-  def read_from_file(file)
-    file_data = @matrix.read_from_file(file)
-
+  def read_free_coef(file = $stdin)
     @dimension.times do |i|
-      @free_coef[i] = file_data[@dimension * @dimension + i].to_f
-    end
-  end
-
-  def read_matrix
-    @matrix.read
-  end
-
-  def read_free_coef
-    @dimension.times do |i|
-      @free_coef[i] = gets.chomp.to_f
+      @free_coef[i] = file.gets.chomp.to_f
     end
   end
 
   def to_s
+    string = ""
     @dimension.times do |i|
       @dimension.times do |j|
-        print @matrix.matrix[i][j].round(@precision)
-        print ", " if j != @dimension - 1
+        string += f_to_s_zeroes(@matrix.matrix[i][j].round(@precision).to_s, @precision)
+        string += ", " if j != @dimension - 1
       end
-      print " = "
-      print @free_coef[i].round(@precision)
-      print "\n"
+      string += " = " + f_to_s_zeroes(@free_coef[i].round(@precision).to_s, @precision) + "\n"
     end
+    string
   end
 
   def gaus_solve(pivot = true)
@@ -168,8 +148,8 @@ class LinearSystemOfEquations
         #from 0, but we want it to start from next row to i-th , and that's (i + 1)-th row
         @free_coef[j + i + 1] += coef * @free_coef[i]
       end
+      @file_output.puts self.to_s + "\n"
     end
-    puts self
   end
 
   def reverse_solve
@@ -185,13 +165,15 @@ class LinearSystemOfEquations
   end
 
   def check_solution(solution)
+    deltas = []
     @matrix.matrix.each_with_index do |row, i|
       left_side = 0
       row.each_with_index do |coef, j|
         left_side += coef * solution[j]
       end
-      puts left_side - @free_coef[i]
+      deltas += left_side - @free_coef[i]
     end
+    deltas
   end
 
   private
@@ -208,25 +190,38 @@ class LinearSystemOfEquations
     end
     sum
   end
-
 end
 
+def f_to_s_zeroes(float, precision)
+  # - and " " are if the number is negative it will have a -
+  # and iif it is positive it will have a space
+  sprintf("%- .#{precision}f", float)
+end
+
+def print_solution(solution, output_file)
+  solution.each_with_index do |sol ,i|
+    output_file.print "x#{i} = " + sol.to_s + "\n"
+  end
+end
+
+def solve_system(input_file, output_file, dimension, precision)
+  linear_system= LinearSystemOfEquations.new(dimension, precision, output_file)
+  linear_system.read(input_file)
+  output_file.puts linear_system.to_s + "\n"
+  solution = linear_system.gaus_solve
+  output_file.puts "\nSolution: "
+  print_solution(solution, output_file)
+  output_file.print "\n\n\n"
+end
+
+
 dimension = 4
-precision = 6
-sys_pivot = LinearSystemOfEquations.new(dimension, precision)
-sys_no_pivot = LinearSystemOfEquations.new(dimension, precision)
-sys_original = LinearSystemOfEquations.new(dimension, precision)
-file = File.open("test_domaci8.txt")
-sys_pivot.read_from_file(file)
-file.rewind
-sys_no_pivot.read_from_file(file)
-file.rewind
-sys_original.read_from_file(file)
-file.close
-puts sys_original
-solution_pivot = sys_pivot.gaus_solve(true)
-solution_no_pivot = sys_no_pivot.gaus_solve(false)
-puts solution_pivot
-puts solution_no_pivot
-sys_pivot.check_solution(solution_pivot)
-sys_no_pivot.check_solution(solution_no_pivot)
+precision = 4
+output = File.open("output.txt", "w")
+file_original = File.open("test_domaci8_1.txt")
+solve_system(file_original, output, dimension, precision)
+file_original.close
+
+file_modified = File.open("test_domaci8_2.txt")
+solve_system(file_modified, output, dimension, precision)
+file_modified.close
